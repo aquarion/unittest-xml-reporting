@@ -7,8 +7,9 @@ default TextTestRunner.
 import os
 import sys
 import time
-from unittest import TestResult, _TextTestResult, TextTestRunner
+from unittest import TestResult, _TextTestResult, TextTestRunner, TestSuite
 from cStringIO import StringIO
+from django.test.testcases import TestCase
 
 
 class _TestInfo(object):
@@ -279,7 +280,9 @@ class XMLTestRunner(TextTestRunner):
     
     def run(self, test):
         "Run the given test case or test suite."
-        
+
+        test = reorder_suite(test, (TestCase,))
+
         try:
             # Prepare the test execution
             self._patch_standard_output()
@@ -327,3 +330,41 @@ class XMLTestRunner(TextTestRunner):
             self._restore_standard_output()
         
         return result
+
+# From django.test.simple.DjangoTestRunner
+def reorder_suite(suite, classes):
+    """
+    Reorders a test suite by test type.
+
+    classes is a sequence of types
+
+    All tests of type clases[0] are placed first, then tests of type classes[1], etc.
+    Tests with no match in classes are placed last.
+    """
+    class_count = len(classes)
+    bins = [TestSuite() for i in range(class_count+1)]
+    partition_suite(suite, classes, bins)
+    for i in range(class_count):
+        bins[0].addTests(bins[i+1])
+    return bins[0]
+
+def partition_suite(suite, classes, bins):
+    """
+    Partitions a test suite by test type.
+
+    classes is a sequence of types
+    bins is a sequence of TestSuites, one more than classes
+
+    Tests of type classes[i] are added to bins[i],
+    tests with no match found in classes are place in bins[-1]
+    """
+    for test in suite:
+        if isinstance(test, TestSuite):
+            partition_suite(test, classes, bins)
+        else:
+            for i in range(len(classes)):
+                if isinstance(test, classes[i]):
+                    bins[i].addTest(test)
+                    break
+            else:
+                bins[-1].addTest(test)
