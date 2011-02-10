@@ -11,6 +11,9 @@ from unittest import TestResult, _TextTestResult, TextTestRunner, TestSuite
 from cStringIO import StringIO
 from django.test.testcases import TestCase
 
+import logging
+from django.conf import settings
+EXCLUDED_APPS = getattr(settings, 'TEST_EXCLUDE', [])
 
 class _TestInfo(object):
     """This class is used to keep useful information about the execution of a
@@ -258,7 +261,13 @@ class XMLTestRunner(TextTestRunner):
         TextTestRunner.__init__(self, stream, descriptions, verbosity)
         self.output = output
         self.elapsed_times = elapsed_times
-    
+ 
+        from django.conf import settings
+        settings.TESTING = True
+        south_log = logging.getLogger("south")
+        south_log.setLevel(logging.WARNING)
+        super(XMLTestRunner, self).__init__(*args, **kwargs)
+
     def _make_result(self):
         """Create the TestResult object which will be used to store
         information about the executed tests.
@@ -330,6 +339,19 @@ class XMLTestRunner(TextTestRunner):
             self._restore_standard_output()
         
         return result
+
+
+    def build_suite(self, *args, **kwargs):
+        suite = super(XMLTestRunner, self).build_suite(*args, **kwargs)
+        if not args[0] and not getattr(settings, 'RUN_ALL_TESTS', False):
+            tests = []
+            for case in suite:
+                pkg = case.__class__.__module__.split('.')[0]
+                if pkg not in EXCLUDED_APPS:
+                    tests.append(case)
+            suite._tests = tests
+        return suite
+
 
 # From django.test.simple.DjangoTestRunner
 def reorder_suite(suite, classes):
