@@ -262,11 +262,6 @@ class XMLTestRunner(TextTestRunner):
         self.output = output
         self.elapsed_times = elapsed_times
  
-        from django.conf import settings
-        settings.TESTING = True
-        south_log = logging.getLogger("south")
-        south_log.setLevel(logging.WARNING)
-        super(XMLTestRunner, self).__init__(*args, **kwargs)
 
     def _make_result(self):
         """Create the TestResult object which will be used to store
@@ -341,16 +336,16 @@ class XMLTestRunner(TextTestRunner):
         return result
 
 
-    def build_suite(self, *args, **kwargs):
-        suite = super(XMLTestRunner, self).build_suite(*args, **kwargs)
-        if not args[0] and not getattr(settings, 'RUN_ALL_TESTS', False):
-            tests = []
-            for case in suite:
-                pkg = case.__class__.__module__.split('.')[0]
-                if pkg not in EXCLUDED_APPS:
-                    tests.append(case)
-            suite._tests = tests
-        return suite
+#    def build_suite(self, *args, **kwargs):
+#        suite = super(XMLTestRunner, self).build_suite(*args, **kwargs)
+#        if not args[0] and not getattr(settings, 'RUN_ALL_TESTS', False):
+#            tests = []
+#            for case in suite:
+#                pkg = case.__class__.__module__.split('.')[0]
+#                if pkg not in EXCLUDED_APPS:
+#                    tests.append(case)
+#            suite._tests = tests
+#        return suite
 
 
 # From django.test.simple.DjangoTestRunner
@@ -384,6 +379,14 @@ def partition_suite(suite, classes, bins):
         if isinstance(test, TestSuite):
             partition_suite(test, classes, bins)
         else:
+            pkg = test.__class__.__module__.split('.')[0]
+            print "This is %s" % pkg
+            if pkg in EXCLUDED_APPS:
+                print "... ignoring it"
+                continue
+
+            print "... testing it"
+
             for i in range(len(classes)):
                 if isinstance(test, classes[i]):
                     bins[i].addTest(test)
